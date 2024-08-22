@@ -5,7 +5,9 @@ import unittest
 
 import frappe
 
-from erpnext.accounts.doctype.pos_profile.pos_profile import get_child_nodes
+from erpnext.accounts.doctype.pos_profile.pos_profile import (
+	get_child_nodes,
+)
 from erpnext.stock.get_item_details import get_pos_profile
 
 test_dependencies = ["Item"]
@@ -52,11 +54,9 @@ def get_customers_list(pos_profile=None):
 
 	return (
 		frappe.db.sql(
-			""" select name, customer_name, customer_group,
+			f""" select name, customer_name, customer_group,
 		territory, customer_pos_id from tabCustomer where disabled = 0
-		and {cond}""".format(
-				cond=cond
-			),
+		and {cond}""",
 			tuple(customer_groups),
 			as_dict=1,
 		)
@@ -75,7 +75,7 @@ def get_items_list(pos_profile, company):
 			cond = "and i.item_group in (%s)" % (", ".join(["%s"] * len(args_list)))
 
 	return frappe.db.sql(
-		"""
+		f"""
 		select
 			i.name, i.item_code, i.item_name, i.description, i.item_group, i.has_batch_no,
 			i.has_serial_no, i.is_stock_item, i.brand, i.stock_uom, i.image,
@@ -88,10 +88,8 @@ def get_items_list(pos_profile, company):
 		where
 			i.disabled = 0 and i.has_variants = 0 and i.is_sales_item = 1 and i.is_fixed_asset = 0
 			{cond}
-		""".format(
-			cond=cond
-		),
-		tuple([company] + args_list),
+		""",
+		tuple([company, *args_list]),
 		as_dict=1,
 	)
 
@@ -118,6 +116,7 @@ def make_pos_profile(**args):
 			"warehouse": args.warehouse or "_Test Warehouse - _TC",
 			"write_off_account": args.write_off_account or "_Test Write Off - _TC",
 			"write_off_cost_center": args.write_off_cost_center or "_Test Write Off Cost Center - _TC",
+			"location": "Block 1" if not args.do_not_set_accounting_dimension else None,
 		}
 	)
 
@@ -132,6 +131,7 @@ def make_pos_profile(**args):
 	pos_profile.append("payments", {"mode_of_payment": "Cash", "default": 1})
 
 	if not frappe.db.exists("POS Profile", args.name or "_Test POS Profile"):
-		pos_profile.insert()
+		if not args.get("do_not_insert"):
+			pos_profile.insert()
 
 	return pos_profile

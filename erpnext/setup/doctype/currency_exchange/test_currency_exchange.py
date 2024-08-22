@@ -49,6 +49,7 @@ def save_new_records(test_records):
 
 test_exchange_values = {"2015-12-15": "66.999", "2016-01-15": "65.1"}
 
+
 # Removing API call from get_exchange_rate
 def patched_requests_get(*args, **kwargs):
 	class PatchResponse:
@@ -83,17 +84,17 @@ class TestCurrencyExchange(unittest.TestCase):
 	def clear_cache(self):
 		cache = frappe.cache()
 		for date in test_exchange_values.keys():
-			key = "currency_exchange_rate_{0}:{1}:{2}".format(date, "USD", "INR")
+			key = "currency_exchange_rate_{}:{}:{}".format(date, "USD", "INR")
 			cache.delete(key)
 
 	def tearDown(self):
-		frappe.db.set_value("Accounts Settings", None, "allow_stale", 1)
+		frappe.db.set_single_value("Accounts Settings", "allow_stale", 1)
 		self.clear_cache()
 
 	def test_exchange_rate(self, mock_get):
 		save_new_records(test_records)
 
-		frappe.db.set_value("Accounts Settings", None, "allow_stale", 1)
+		frappe.db.set_single_value("Accounts Settings", "allow_stale", 1)
 
 		# Start with allow_stale is True
 		exchange_rate = get_exchange_rate("USD", "INR", "2016-01-01", "for_buying")
@@ -121,10 +122,11 @@ class TestCurrencyExchange(unittest.TestCase):
 		# Update Currency Exchange Rate
 		settings = frappe.get_single("Currency Exchange Settings")
 		settings.service_provider = "exchangerate.host"
+		settings.access_key = "12345667890"
 		settings.save()
 
 		# Update exchange
-		frappe.db.set_value("Accounts Settings", None, "allow_stale", 1)
+		frappe.db.set_single_value("Accounts Settings", "allow_stale", 1)
 
 		# Start with allow_stale is True
 		exchange_rate = get_exchange_rate("USD", "INR", "2016-01-01", "for_buying")
@@ -152,8 +154,8 @@ class TestCurrencyExchange(unittest.TestCase):
 
 	def test_exchange_rate_strict(self, mock_get):
 		# strict currency settings
-		frappe.db.set_value("Accounts Settings", None, "allow_stale", 0)
-		frappe.db.set_value("Accounts Settings", None, "stale_days", 1)
+		frappe.db.set_single_value("Accounts Settings", "allow_stale", 0)
+		frappe.db.set_single_value("Accounts Settings", "stale_days", 1)
 
 		exchange_rate = get_exchange_rate("USD", "INR", "2016-01-01", "for_buying")
 		self.assertEqual(exchange_rate, 60.0)
@@ -175,8 +177,8 @@ class TestCurrencyExchange(unittest.TestCase):
 		exchange_rate = get_exchange_rate("USD", "INR", "2016-01-15", "for_buying")
 		self.assertEqual(exchange_rate, 65.1)
 
-		frappe.db.set_value("Accounts Settings", None, "allow_stale", 0)
-		frappe.db.set_value("Accounts Settings", None, "stale_days", 1)
+		frappe.db.set_single_value("Accounts Settings", "allow_stale", 0)
+		frappe.db.set_single_value("Accounts Settings", "stale_days", 1)
 
 		self.clear_cache()
 		exchange_rate = get_exchange_rate("USD", "INR", "2016-01-30", "for_buying")

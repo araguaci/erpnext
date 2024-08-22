@@ -14,35 +14,39 @@
   "item_name",
   "image",
   "bom_no",
+  "sales_order",
   "column_break1",
   "company",
   "qty",
   "material_transferred_for_manufacturing",
   "produced_qty",
   "process_loss_qty",
-  "sales_order",
   "project",
-  "serial_no_and_batch_for_finished_good_section",
-  "has_serial_no",
-  "has_batch_no",
-  "column_break_17",
-  "serial_no",
-  "batch_size",
-  "settings_section",
-  "allow_alternative_item",
-  "use_multi_level_bom",
-  "column_break_18",
-  "skip_transfer",
-  "from_wip_warehouse",
-  "update_consumed_material_cost_in_project",
+  "track_semi_finished_goods",
   "warehouses",
   "source_warehouse",
   "wip_warehouse",
   "column_break_12",
   "fg_warehouse",
   "scrap_warehouse",
-  "required_items_section",
+  "operations_section",
+  "transfer_material_against",
+  "operations",
+  "section_break_ndpq",
   "required_items",
+  "work_order_configuration",
+  "settings_section",
+  "allow_alternative_item",
+  "use_multi_level_bom",
+  "column_break_17",
+  "skip_transfer",
+  "from_wip_warehouse",
+  "update_consumed_material_cost_in_project",
+  "serial_no_and_batch_for_finished_good_section",
+  "has_serial_no",
+  "has_batch_no",
+  "column_break_18",
+  "batch_size",
   "time",
   "planned_start_date",
   "planned_end_date",
@@ -51,9 +55,6 @@
   "actual_start_date",
   "actual_end_date",
   "lead_time",
-  "operations_section",
-  "transfer_material_against",
-  "operations",
   "section_break_22",
   "planned_operating_cost",
   "actual_operating_cost",
@@ -72,12 +73,14 @@
   "production_plan_item",
   "production_plan_sub_assembly_item",
   "product_bundle_item",
-  "amended_from"
+  "amended_from",
+  "connections_tab"
  ],
  "fields": [
   {
    "fieldname": "item",
-   "fieldtype": "Section Break",
+   "fieldtype": "Tab Break",
+   "label": "Production Item",
    "options": "fa fa-gift"
   },
   {
@@ -192,7 +195,7 @@
   },
   {
    "default": "0",
-   "depends_on": "eval:doc.docstatus==1 && doc.skip_transfer==0",
+   "depends_on": "eval:doc.docstatus==1 && doc.skip_transfer==0 && doc.track_semi_finished_goods === 0",
    "fieldname": "material_transferred_for_manufacturing",
    "fieldtype": "Float",
    "label": "Material Transferred for Manufacturing",
@@ -236,7 +239,7 @@
   {
    "fieldname": "warehouses",
    "fieldtype": "Section Break",
-   "label": "Warehouses",
+   "label": "Warehouse",
    "options": "fa fa-building"
   },
   {
@@ -244,7 +247,7 @@
    "fieldname": "wip_warehouse",
    "fieldtype": "Link",
    "label": "Work-in-Progress Warehouse",
-   "mandatory_depends_on": "eval:!doc.skip_transfer || doc.from_wip_warehouse",
+   "mandatory_depends_on": "eval:(!doc.skip_transfer || doc.from_wip_warehouse) && !doc.track_semi_finished_goods",
    "options": "Warehouse"
   },
   {
@@ -252,8 +255,7 @@
    "fieldname": "fg_warehouse",
    "fieldtype": "Link",
    "label": "Target Warehouse",
-   "options": "Warehouse",
-   "reqd": 1
+   "options": "Warehouse"
   },
   {
    "fieldname": "column_break_12",
@@ -267,14 +269,8 @@
    "options": "Warehouse"
   },
   {
-   "fieldname": "required_items_section",
-   "fieldtype": "Section Break",
-   "label": "Required Items"
-  },
-  {
    "fieldname": "required_items",
    "fieldtype": "Table",
-   "label": "Required Items",
    "no_copy": 1,
    "options": "Work Order Item",
    "print_hide": 1
@@ -326,14 +322,13 @@
    "label": "Expected Delivery Date"
   },
   {
-   "collapsible": 1,
    "fieldname": "operations_section",
    "fieldtype": "Section Break",
    "label": "Operations",
    "options": "fa fa-wrench"
   },
   {
-   "depends_on": "operations",
+   "depends_on": "eval: doc.operations?.length && doc.track_semi_finished_goods === 0",
    "fetch_from": "bom_no.transfer_material_against",
    "fetch_if_empty": 1,
    "fieldname": "transfer_material_against",
@@ -390,8 +385,8 @@
   {
    "collapsible": 1,
    "fieldname": "more_info",
-   "fieldtype": "Section Break",
-   "label": "More Information",
+   "fieldtype": "Tab Break",
+   "label": "More Info",
    "options": "fa fa-file-text"
   },
   {
@@ -401,6 +396,8 @@
    "read_only": 1
   },
   {
+   "fetch_from": "production_item.stock_uom",
+   "fetch_if_empty": 1,
    "fieldname": "stock_uom",
    "fieldtype": "Link",
    "label": "Stock UOM",
@@ -442,7 +439,8 @@
    "no_copy": 1,
    "options": "Production Plan",
    "print_hide": 1,
-   "read_only": 1
+   "read_only": 1,
+   "search_index": 1
   },
   {
    "fieldname": "production_plan_item",
@@ -474,8 +472,7 @@
   },
   {
    "fieldname": "settings_section",
-   "fieldtype": "Section Break",
-   "label": "Settings"
+   "fieldtype": "Section Break"
   },
   {
    "fieldname": "column_break_18",
@@ -529,13 +526,6 @@
    "read_only": 1
   },
   {
-   "depends_on": "has_serial_no",
-   "fieldname": "serial_no",
-   "fieldtype": "Small Text",
-   "label": "Serial Nos",
-   "no_copy": 1
-  },
-  {
    "default": "0",
    "depends_on": "has_batch_no",
    "fieldname": "batch_size",
@@ -568,6 +558,32 @@
    "no_copy": 1,
    "non_negative": 1,
    "read_only": 1
+  },
+  {
+   "fieldname": "connections_tab",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
+  },
+  {
+   "fieldname": "work_order_configuration",
+   "fieldtype": "Tab Break",
+   "label": "Configuration"
+  },
+  {
+   "collapsible": 1,
+   "collapsible_depends_on": "eval:!doc.operations?.length",
+   "fieldname": "section_break_ndpq",
+   "fieldtype": "Section Break",
+   "label": "Required Items"
+  },
+  {
+   "default": "0",
+   "fetch_from": "bom_no.track_semi_finished_goods",
+   "fieldname": "track_semi_finished_goods",
+   "fieldtype": "Check",
+   "label": "Track Semi Finished Goods",
+   "read_only": 1
   }
  ],
  "icon": "fa fa-cogs",
@@ -575,7 +591,7 @@
  "image_field": "image",
  "is_submittable": 1,
  "links": [],
- "modified": "2022-01-24 21:18:12.160114",
+ "modified": "2024-03-27 13:13:00.129434",
  "modified_by": "Administrator",
  "module": "Manufacturing",
  "name": "Work Order",
@@ -595,7 +611,6 @@
    "read": 1,
    "report": 1,
    "role": "Manufacturing User",
-   "set_user_permissions": 1,
    "share": 1,
    "submit": 1,
    "write": 1
@@ -606,7 +621,7 @@
    "role": "Stock User"
   }
  ],
- "sort_field": "modified",
+ "sort_field": "creation",
  "sort_order": "ASC",
  "states": [],
  "title_field": "production_item",

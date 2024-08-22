@@ -18,12 +18,12 @@ def upload_bank_statement():
 		fcontent = frappe.local.uploaded_file
 		fname = frappe.local.uploaded_filename
 
-	if frappe.safe_encode(fname).lower().endswith("csv".encode("utf-8")):
+	if frappe.safe_encode(fname).lower().endswith(b"csv"):
 		from frappe.utils.csvutils import read_csv_content
 
 		rows = read_csv_content(fcontent, False)
 
-	elif frappe.safe_encode(fname).lower().endswith("xlsx".encode("utf-8")):
+	elif frappe.safe_encode(fname).lower().endswith(b"xlsx"):
 		from frappe.utils.xlsxutils import read_xlsx_file_from_attached_file
 
 		rows = read_xlsx_file_from_attached_file(fcontent=fcontent)
@@ -74,7 +74,7 @@ def get_header_mapping(columns, bank_account):
 
 
 def get_bank_mapping(bank_account):
-	bank_name = frappe.db.get_value("Bank Account", bank_account, "bank")
+	bank_name = frappe.get_cached_value("Bank Account", bank_account, "bank")
 	bank = frappe.get_doc("Bank", bank_name)
 
 	mapping = {row.file_field: row.bank_transaction_field for row in bank.bank_transaction_mapping}

@@ -33,9 +33,7 @@ def get_report_data(last_purchase_rate, required_qty, row, manufacture_details):
 		row.item_code,
 		row.description,
 		comma_and(manufacture_details.get(row.item_code, {}).get("manufacturer", []), add_quotes=False),
-		comma_and(
-			manufacture_details.get(row.item_code, {}).get("manufacturer_part", []), add_quotes=False
-		),
+		comma_and(manufacture_details.get(row.item_code, {}).get("manufacturer_part", []), add_quotes=False),
 		qty_per_unit,
 		row.actual_qty,
 		required_qty,
@@ -146,7 +144,7 @@ def get_bom_data(filters):
 				)
 			)
 		else:
-			query = query.where(bin.warehouse == frappe.db.escape(filters.get("warehouse")))
+			query = query.where(bin.warehouse == filters.get("warehouse"))
 
 	return query.run(as_dict=True)
 

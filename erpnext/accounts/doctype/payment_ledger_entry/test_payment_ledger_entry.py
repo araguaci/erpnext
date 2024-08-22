@@ -3,12 +3,13 @@
 
 import frappe
 from frappe import qb
-from frappe.tests.utils import FrappeTestCase
+from frappe.tests.utils import FrappeTestCase, change_settings
 from frappe.utils import nowdate
 
 from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
 from erpnext.accounts.doctype.payment_entry.test_payment_entry import create_payment_entry
 from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_sales_invoice
+from erpnext.selling.doctype.sales_order.test_sales_order import make_sales_order
 from erpnext.stock.doctype.item.test_item import create_item
 
 
@@ -83,11 +84,14 @@ class TestPaymentLedgerEntry(FrappeTestCase):
 			self.customer = customer.name
 
 	def create_sales_invoice(
-		self, qty=1, rate=100, posting_date=nowdate(), do_not_save=False, do_not_submit=False
+		self, qty=1, rate=100, posting_date=None, do_not_save=False, do_not_submit=False
 	):
 		"""
 		Helper function to populate default values in sales invoice
 		"""
+		if posting_date is None:
+			posting_date = nowdate()
+
 		sinv = create_sales_invoice(
 			qty=qty,
 			rate=rate,
@@ -111,10 +115,12 @@ class TestPaymentLedgerEntry(FrappeTestCase):
 		)
 		return sinv
 
-	def create_payment_entry(self, amount=100, posting_date=nowdate()):
+	def create_payment_entry(self, amount=100, posting_date=None):
 		"""
 		Helper function to populate default values in payment entry
 		"""
+		if posting_date is None:
+			posting_date = nowdate()
 		payment = create_payment_entry(
 			company=self.company,
 			payment_type="Receive",
@@ -126,6 +132,26 @@ class TestPaymentLedgerEntry(FrappeTestCase):
 		)
 		payment.posting_date = posting_date
 		return payment
+
+	def create_sales_order(self, qty=1, rate=100, posting_date=None, do_not_save=False, do_not_submit=False):
+		if posting_date is None:
+			posting_date = nowdate()
+
+		so = make_sales_order(
+			company=self.company,
+			transaction_date=posting_date,
+			customer=self.customer,
+			item_code=self.item,
+			cost_center=self.cost_center,
+			warehouse=self.warehouse,
+			debit_to=self.debit_to,
+			currency="INR",
+			qty=qty,
+			rate=100,
+			do_not_save=do_not_save,
+			do_not_submit=do_not_submit,
+		)
+		return so
 
 	def clear_old_entries(self):
 		doctype_list = [
@@ -139,9 +165,7 @@ class TestPaymentLedgerEntry(FrappeTestCase):
 		for doctype in doctype_list:
 			qb.from_(qb.DocType(doctype)).delete().where(qb.DocType(doctype).company == self.company).run()
 
-	def create_journal_entry(
-		self, acc1=None, acc2=None, amount=0, posting_date=None, cost_center=None
-	):
+	def create_journal_entry(self, acc1=None, acc2=None, amount=0, posting_date=None, cost_center=None):
 		je = frappe.new_doc("Journal Entry")
 		je.posting_date = posting_date or nowdate()
 		je.company = self.company
@@ -274,7 +298,7 @@ class TestPaymentLedgerEntry(FrappeTestCase):
 		cr_note1.return_against = si3.name
 		cr_note1 = cr_note1.save().submit()
 
-		pl_entries = (
+		pl_entries_si3 = (
 			qb.from_(ple)
 			.select(
 				ple.voucher_type,
@@ -289,7 +313,22 @@ class TestPaymentLedgerEntry(FrappeTestCase):
 			.run(as_dict=True)
 		)
 
-		expected_values = [
+		pl_entries_cr_note1 = (
+			qb.from_(ple)
+			.select(
+				ple.voucher_type,
+				ple.voucher_no,
+				ple.against_voucher_type,
+				ple.against_voucher_no,
+				ple.amount,
+				ple.delinked,
+			)
+			.where((ple.against_voucher_type == cr_note1.doctype) & (ple.against_voucher_no == cr_note1.name))
+			.orderby(ple.creation)
+			.run(as_dict=True)
+		)
+
+		expected_values_for_si3 = [
 			{
 				"voucher_type": si3.doctype,
 				"voucher_no": si3.name,
@@ -297,18 +336,21 @@ class TestPaymentLedgerEntry(FrappeTestCase):
 				"against_voucher_no": si3.name,
 				"amount": amount,
 				"delinked": 0,
-			},
+			}
+		]
+		# credit/debit notes post ledger entries against itself
+		expected_values_for_cr_note1 = [
 			{
 				"voucher_type": cr_note1.doctype,
 				"voucher_no": cr_note1.name,
-				"against_voucher_type": si3.doctype,
-				"against_voucher_no": si3.name,
+				"against_voucher_type": cr_note1.doctype,
+				"against_voucher_no": cr_note1.name,
 				"amount": -amount,
 				"delinked": 0,
 			},
 		]
-		self.assertEqual(pl_entries[0], expected_values[0])
-		self.assertEqual(pl_entries[1], expected_values[1])
+		self.assertEqual(pl_entries_si3, expected_values_for_si3)
+		self.assertEqual(pl_entries_cr_note1, expected_values_for_cr_note1)
 
 	def test_je_against_inv_and_note(self):
 		ple = self.ple
@@ -322,9 +364,7 @@ class TestPaymentLedgerEntry(FrappeTestCase):
 		)
 		cr_note2.is_return = 1
 		cr_note2 = cr_note2.save().submit()
-		je1 = self.create_journal_entry(
-			self.debit_to, self.debit_to, amount, posting_date=transaction_date
-		)
+		je1 = self.create_journal_entry(self.debit_to, self.debit_to, amount, posting_date=transaction_date)
 		je1.get("accounts")[0].party_type = je1.get("accounts")[1].party_type = "Customer"
 		je1.get("accounts")[0].party = je1.get("accounts")[1].party = self.customer
 		je1.get("accounts")[0].reference_type = cr_note2.doctype
@@ -379,9 +419,7 @@ class TestPaymentLedgerEntry(FrappeTestCase):
 				ple.amount,
 				ple.delinked,
 			)
-			.where(
-				(ple.against_voucher_type == cr_note2.doctype) & (ple.against_voucher_no == cr_note2.name)
-			)
+			.where((ple.against_voucher_type == cr_note2.doctype) & (ple.against_voucher_no == cr_note2.name))
 			.orderby(ple.creation)
 			.run(as_dict=True)
 		)
@@ -406,3 +444,93 @@ class TestPaymentLedgerEntry(FrappeTestCase):
 		]
 		self.assertEqual(pl_entries_for_crnote[0], expected_values[0])
 		self.assertEqual(pl_entries_for_crnote[1], expected_values[1])
+
+	@change_settings(
+		"Accounts Settings",
+		{"unlink_payment_on_cancellation_of_invoice": 1, "delete_linked_ledger_entries": 1},
+	)
+	def test_multi_payment_unlink_on_invoice_cancellation(self):
+		transaction_date = nowdate()
+		amount = 100
+		si = self.create_sales_invoice(qty=1, rate=amount, posting_date=transaction_date)
+
+		for amt in [40, 40, 20]:
+			# payment 1
+			pe = get_payment_entry(si.doctype, si.name)
+			pe.paid_amount = amt
+			pe.get("references")[0].allocated_amount = amt
+			pe = pe.save().submit()
+
+		si.reload()
+		si.cancel()
+
+		entries = frappe.db.get_list(
+			"Payment Ledger Entry",
+			filters={"against_voucher_type": si.doctype, "against_voucher_no": si.name, "delinked": 0},
+		)
+		self.assertEqual(entries, [])
+
+		# with references removed, deletion should be possible
+		si.delete()
+		self.assertRaises(frappe.DoesNotExistError, frappe.get_doc, si.doctype, si.name)
+
+	@change_settings(
+		"Accounts Settings",
+		{"unlink_payment_on_cancellation_of_invoice": 1, "delete_linked_ledger_entries": 1},
+	)
+	def test_multi_je_unlink_on_invoice_cancellation(self):
+		transaction_date = nowdate()
+		amount = 100
+		si = self.create_sales_invoice(qty=1, rate=amount, posting_date=transaction_date)
+
+		# multiple JE's against invoice
+		for amt in [40, 40, 20]:
+			je1 = self.create_journal_entry(
+				self.income_account, self.debit_to, amt, posting_date=transaction_date
+			)
+			je1.get("accounts")[1].party_type = "Customer"
+			je1.get("accounts")[1].party = self.customer
+			je1.get("accounts")[1].reference_type = si.doctype
+			je1.get("accounts")[1].reference_name = si.name
+			je1 = je1.save().submit()
+
+		si.reload()
+		si.cancel()
+
+		entries = frappe.db.get_list(
+			"Payment Ledger Entry",
+			filters={"against_voucher_type": si.doctype, "against_voucher_no": si.name, "delinked": 0},
+		)
+		self.assertEqual(entries, [])
+
+		# with references removed, deletion should be possible
+		si.delete()
+		self.assertRaises(frappe.DoesNotExistError, frappe.get_doc, si.doctype, si.name)
+
+	@change_settings(
+		"Accounts Settings",
+		{
+			"unlink_payment_on_cancellation_of_invoice": 1,
+			"delete_linked_ledger_entries": 1,
+			"unlink_advance_payment_on_cancelation_of_order": 1,
+		},
+	)
+	def test_advance_payment_unlink_on_order_cancellation(self):
+		transaction_date = nowdate()
+		amount = 100
+		so = self.create_sales_order(qty=1, rate=amount, posting_date=transaction_date).save().submit()
+
+		get_payment_entry(so.doctype, so.name).save().submit()
+
+		so.reload()
+		so.cancel()
+
+		entries = frappe.db.get_list(
+			"Payment Ledger Entry",
+			filters={"against_voucher_type": so.doctype, "against_voucher_no": so.name, "delinked": 0},
+		)
+		self.assertEqual(entries, [])
+
+		# with references removed, deletion should be possible
+		so.delete()
+		self.assertRaises(frappe.DoesNotExistError, frappe.get_doc, so.doctype, so.name)

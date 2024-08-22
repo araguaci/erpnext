@@ -94,9 +94,7 @@ def get_linked_prospect(reference_doctype, reference_name):
 			"Opportunity", reference_name, ["opportunity_from", "party_name"]
 		)
 		if opportunity_from == "Lead":
-			prospect = frappe.db.get_value(
-				"Prospect Opportunity", {"opportunity": reference_name}, "parent"
-			)
+			prospect = frappe.db.get_value("Prospect Opportunity", {"opportunity": reference_name}, "parent")
 		if opportunity_from == "Prospect":
 			prospect = party_name
 
@@ -120,7 +118,7 @@ def link_open_tasks(ref_doctype, ref_docname, doc):
 		todo_doc = frappe.get_doc("ToDo", todo.name)
 		todo_doc.reference_type = doc.doctype
 		todo_doc.reference_name = doc.name
-		todo_doc.db_update()
+		todo_doc.save()
 
 
 def link_open_events(ref_doctype, ref_docname, doc):

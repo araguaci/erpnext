@@ -16,6 +16,28 @@ class TestItemPrice(FrappeTestCase):
 		frappe.db.sql("delete from `tabItem Price`")
 		make_test_records_for_doctype("Item Price", force=True)
 
+	def test_template_item_price(self):
+		from erpnext.stock.doctype.item.test_item import make_item
+
+		item = make_item(
+			"Test Template Item 1",
+			{
+				"has_variants": 1,
+				"variant_based_on": "Manufacturer",
+			},
+		)
+
+		doc = frappe.get_doc(
+			{
+				"doctype": "Item Price",
+				"price_list": "_Test Price List",
+				"item_code": item.name,
+				"price_list_rate": 100,
+			}
+		)
+
+		self.assertRaises(frappe.ValidationError, doc.save)
+
 	def test_duplicate_item(self):
 		doc = frappe.copy_doc(test_records[0])
 		self.assertRaises(ItemPriceDuplicateItem, doc.save)
@@ -42,7 +64,7 @@ class TestItemPrice(FrappeTestCase):
 		# Enter invalid dates valid_from  >= valid_upto
 		doc.valid_from = "2017-04-20"
 		doc.valid_upto = "2017-04-17"
-		# Valid Upto Date can not be less/equal than Valid From Date
+		# Valid Up To Date can not be less/equal than Valid From Date
 		self.assertRaises(frappe.ValidationError, doc.save)
 
 	def test_price_in_a_qty(self):

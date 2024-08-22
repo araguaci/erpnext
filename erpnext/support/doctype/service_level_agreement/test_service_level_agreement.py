@@ -15,8 +15,30 @@ from erpnext.support.doctype.service_level_agreement.service_level_agreement imp
 
 class TestServiceLevelAgreement(unittest.TestCase):
 	def setUp(self):
-		frappe.db.set_value("Support Settings", None, "track_service_level_agreement", 1)
-		frappe.db.sql("delete from `tabLead`")
+		self.create_company()
+		frappe.db.set_single_value("Support Settings", "track_service_level_agreement", 1)
+		lead = frappe.qb.DocType("Lead")
+		frappe.qb.from_(lead).delete().where(lead.company == self.company).run()
+
+	def create_company(self):
+		name = "_Test Support SLA"
+		company = None
+		if frappe.db.exists("Company", name):
+			company = frappe.get_doc("Company", name)
+		else:
+			company = frappe.get_doc(
+				{
+					"doctype": "Company",
+					"company_name": name,
+					"country": "India",
+					"default_currency": "INR",
+					"create_chart_of_accounts_based_on": "Standard Template",
+					"chart_of_accounts": "Standard",
+				}
+			)
+			company = company.save()
+
+		self.company = company.name
 
 	def test_service_level_agreement(self):
 		# Default Service Level Agreement
@@ -29,9 +51,7 @@ class TestServiceLevelAgreement(unittest.TestCase):
 			resolution_time=21600,
 		)
 
-		get_default_service_level_agreement = get_service_level_agreement(
-			default_service_level_agreement=1
-		)
+		get_default_service_level_agreement = get_service_level_agreement(default_service_level_agreement=1)
 
 		self.assertEqual(
 			create_default_service_level_agreement.name, get_default_service_level_agreement.name
@@ -176,9 +196,7 @@ class TestServiceLevelAgreement(unittest.TestCase):
 		)
 
 		# check default SLA for custom dt
-		default_sla = get_service_level_agreement(
-			default_service_level_agreement=1, doctype=doctype.name
-		)
+		default_sla = get_service_level_agreement(default_service_level_agreement=1, doctype=doctype.name)
 		self.assertEqual(sla.name, default_sla.name)
 
 		# check SLA docfields created
@@ -205,7 +223,7 @@ class TestServiceLevelAgreement(unittest.TestCase):
 
 		# make lead with default SLA
 		creation = datetime.datetime(2019, 3, 4, 12, 0)
-		lead = make_lead(creation=creation, index=1)
+		lead = make_lead(creation=creation, index=1, company=self.company)
 
 		self.assertEqual(lead.service_level_agreement, lead_sla.name)
 		self.assertEqual(lead.response_by, datetime.datetime(2019, 3, 4, 16, 0))
@@ -233,7 +251,7 @@ class TestServiceLevelAgreement(unittest.TestCase):
 		)
 
 		creation = datetime.datetime(2020, 3, 4, 4, 0)
-		lead = make_lead(creation, index=2)
+		lead = make_lead(creation, index=2, company=self.company)
 
 		frappe.flags.current_time = datetime.datetime(2020, 3, 4, 4, 15)
 		lead.reload()
@@ -267,7 +285,7 @@ class TestServiceLevelAgreement(unittest.TestCase):
 		)
 
 		creation = datetime.datetime(2019, 3, 4, 12, 0)
-		lead = make_lead(creation=creation, index=1)
+		lead = make_lead(creation=creation, index=1, company=self.company)
 		self.assertEqual(lead.response_by, datetime.datetime(2019, 3, 4, 16, 0))
 
 		# failed with response time only
@@ -294,7 +312,7 @@ class TestServiceLevelAgreement(unittest.TestCase):
 
 		# fulfilled with response time only
 		creation = datetime.datetime(2019, 3, 4, 12, 0)
-		lead = make_lead(creation=creation, index=2)
+		lead = make_lead(creation=creation, index=2, company=self.company)
 
 		self.assertEqual(lead.service_level_agreement, lead_sla.name)
 		self.assertEqual(lead.response_by, datetime.datetime(2019, 3, 4, 16, 0))
@@ -321,7 +339,7 @@ class TestServiceLevelAgreement(unittest.TestCase):
 			apply_sla_for_resolution=0,
 		)
 		creation = datetime.datetime(2019, 3, 4, 12, 0)
-		lead = make_lead(creation=creation, index=4)
+		lead = make_lead(creation=creation, index=4, company=self.company)
 		applied_sla = frappe.db.get_value("Lead", lead.name, "service_level_agreement")
 		self.assertFalse(applied_sla)
 
@@ -368,14 +386,17 @@ def create_service_level_agreement(
 	resolution_time=0,
 	doctype="Issue",
 	condition="",
-	sla_fulfilled_on=[],
-	pause_sla_on=[],
+	sla_fulfilled_on=None,
+	pause_sla_on=None,
 	apply_sla_for_resolution=1,
 	service_level=None,
 	start_time="10:00:00",
 	end_time="18:00:00",
 ):
-
+	if pause_sla_on is None:
+		pause_sla_on = []
+	if sla_fulfilled_on is None:
+		sla_fulfilled_on = []
 	make_holiday_list()
 	make_priorities()
 
@@ -462,9 +483,7 @@ def create_service_level_agreement(
 	if sla:
 		frappe.delete_doc("Service Level Agreement", sla, force=1)
 
-	return frappe.get_doc(service_level_agreement).insert(
-		ignore_permissions=True, ignore_if_duplicate=True
-	)
+	return frappe.get_doc(service_level_agreement).insert(ignore_permissions=True, ignore_if_duplicate=True)
 
 
 def create_customer():
@@ -593,7 +612,12 @@ def create_custom_doctype():
 				"fields": [
 					{"label": "Date", "fieldname": "date", "fieldtype": "Date"},
 					{"label": "Description", "fieldname": "desc", "fieldtype": "Long Text"},
-					{"label": "Email ID", "fieldname": "email_id", "fieldtype": "Link", "options": "Customer"},
+					{
+						"label": "Email ID",
+						"fieldname": "email_id",
+						"fieldtype": "Link",
+						"options": "Customer",
+					},
 					{
 						"label": "Status",
 						"fieldname": "status",
@@ -611,15 +635,16 @@ def create_custom_doctype():
 		return frappe.get_doc("DocType", "Test SLA on Custom Dt")
 
 
-def make_lead(creation=None, index=0):
+def make_lead(creation=None, index=0, company=None):
 	return frappe.get_doc(
 		{
 			"doctype": "Lead",
-			"email_id": "test_lead1@example{0}.com".format(index),
-			"lead_name": "_Test Lead {0}".format(index),
+			"email_id": f"test_lead1@example{index}.com",
+			"lead_name": f"_Test Lead {index}",
 			"status": "Open",
 			"creation": creation,
 			"service_level_agreement_creation": creation,
 			"priority": "Medium",
+			"company": company,
 		}
 	).insert(ignore_permissions=True)

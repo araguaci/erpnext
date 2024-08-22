@@ -7,34 +7,41 @@
  "document_type": "Document",
  "engine": "InnoDB",
  "field_order": [
-  "items_section",
+  "stock_entry_details_tab",
   "naming_series",
   "stock_entry_type",
   "outgoing_stock_entry",
   "purpose",
   "add_to_transit",
   "work_order",
+  "job_card",
   "purchase_order",
   "subcontracting_order",
   "delivery_note_no",
   "sales_invoice_no",
   "pick_list",
   "purchase_receipt_no",
+  "asset_repair",
   "col2",
   "company",
   "posting_date",
   "posting_time",
+  "column_break_eaoa",
   "set_posting_time",
   "inspection_required",
-  "from_bom",
   "apply_putaway_rule",
-  "sb1",
-  "bom_no",
-  "fg_completed_qty",
-  "cb1",
+  "bom_info_section",
+  "from_bom",
   "use_multi_level_bom",
+  "bom_no",
+  "cb1",
+  "fg_completed_qty",
   "get_items",
-  "section_break_12",
+  "section_break_7qsm",
+  "process_loss_percentage",
+  "column_break_e92r",
+  "process_loss_qty",
+  "section_break_jwgn",
   "from_warehouse",
   "source_warehouse_address",
   "source_address_display",
@@ -44,6 +51,7 @@
   "target_address_display",
   "sb0",
   "scan_barcode",
+  "items_section",
   "items",
   "get_stock_and_rate",
   "section_break_19",
@@ -54,6 +62,7 @@
   "additional_costs_section",
   "additional_costs",
   "total_additional_costs",
+  "supplier_info_tab",
   "contact_section",
   "supplier",
   "supplier_name",
@@ -61,7 +70,7 @@
   "address_display",
   "accounting_dimensions_section",
   "project",
-  "dimension_col_break",
+  "other_info_tab",
   "printing_settings",
   "select_print_heading",
   "print_settings_col_break",
@@ -72,17 +81,12 @@
   "col5",
   "per_transferred",
   "total_amount",
-  "job_card",
   "amended_from",
   "credit_note",
-  "is_return"
+  "is_return",
+  "tab_connections"
  ],
  "fields": [
-  {
-   "fieldname": "items_section",
-   "fieldtype": "Section Break",
-   "oldfieldtype": "Section Break"
-  },
   {
    "fieldname": "naming_series",
    "fieldtype": "Select",
@@ -102,7 +106,8 @@
    "in_standard_filter": 1,
    "label": "Stock Entry Type",
    "options": "Stock Entry Type",
-   "reqd": 1
+   "reqd": 1,
+   "search_index": 1
   },
   {
    "depends_on": "eval:doc.purpose == 'Material Transfer'",
@@ -123,7 +128,8 @@
    "oldfieldname": "purpose",
    "oldfieldtype": "Select",
    "options": "Material Issue\nMaterial Receipt\nMaterial Transfer\nMaterial Transfer for Manufacture\nMaterial Consumption for Manufacture\nManufacture\nRepack\nSend to Subcontractor",
-   "read_only": 1
+   "read_only": 1,
+   "search_index": 1
   },
   {
    "fieldname": "company",
@@ -148,19 +154,19 @@
    "search_index": 1
   },
   {
-    "depends_on": "eval:doc.purpose==\"Send to Subcontractor\"",
-    "fieldname": "purchase_order",
-    "fieldtype": "Link",
-    "label": "Purchase Order",
-    "options": "Purchase Order"
+   "depends_on": "eval:doc.purpose==\"Send to Subcontractor\"",
+   "fieldname": "purchase_order",
+   "fieldtype": "Link",
+   "label": "Purchase Order",
+   "options": "Purchase Order"
   },
   {
-    "depends_on": "eval:doc.purpose==\"Send to Subcontractor\"",
-    "fieldname": "subcontracting_order",
-    "fieldtype": "Link",
-    "label": "Subcontracting Order",
-    "options": "Subcontracting Order"
-   },
+   "depends_on": "eval:doc.purpose==\"Send to Subcontractor\"",
+   "fieldname": "subcontracting_order",
+   "fieldtype": "Link",
+   "label": "Subcontracting Order",
+   "options": "Subcontracting Order"
+  },
   {
    "depends_on": "eval:doc.purpose==\"Sales Return\"",
    "fieldname": "delivery_note_no",
@@ -236,16 +242,11 @@
   },
   {
    "default": "0",
-   "depends_on": "eval:in_list([\"Material Issue\", \"Material Transfer\", \"Manufacture\", \"Repack\", \t\t\t\t\t\"Send to Subcontractor\", \"Material Transfer for Manufacture\", \"Material Consumption for Manufacture\"], doc.purpose)",
+   "depends_on": "eval:in_list([\"Material Issue\", \"Material Transfer\", \"Manufacture\", \"Repack\", \"Send to Subcontractor\", \"Material Transfer for Manufacture\", \"Material Consumption for Manufacture\"], doc.purpose)",
    "fieldname": "from_bom",
    "fieldtype": "Check",
    "label": "From BOM",
    "print_hide": 1
-  },
-  {
-   "depends_on": "eval: doc.from_bom && (doc.purpose!==\"Sales Return\" && doc.purpose!==\"Purchase Return\")",
-   "fieldname": "sb1",
-   "fieldtype": "Section Break"
   },
   {
    "depends_on": "from_bom",
@@ -259,7 +260,7 @@
    "description": "As per Stock UOM",
    "fieldname": "fg_completed_qty",
    "fieldtype": "Float",
-   "label": "For Quantity",
+   "label": "Finished Good Quantity ",
    "oldfieldname": "fg_completed_qty",
    "oldfieldtype": "Currency",
    "print_hide": 1
@@ -286,10 +287,6 @@
    "print_hide": 1
   },
   {
-   "fieldname": "section_break_12",
-   "fieldtype": "Section Break"
-  },
-  {
    "description": "Sets 'Source Warehouse' in each row of the items table.",
    "fieldname": "from_warehouse",
    "fieldtype": "Link",
@@ -306,12 +303,12 @@
    "depends_on": "from_warehouse",
    "fieldname": "source_warehouse_address",
    "fieldtype": "Link",
-   "label": "Source Warehouse Address",
+   "label": "Source Warehouse Address Link",
    "options": "Address"
   },
   {
    "fieldname": "source_address_display",
-   "fieldtype": "Small Text",
+   "fieldtype": "Text Editor",
    "label": "Source Warehouse Address",
    "read_only": 1
   },
@@ -336,12 +333,12 @@
    "depends_on": "to_warehouse",
    "fieldname": "target_warehouse_address",
    "fieldtype": "Link",
-   "label": "Target Warehouse Address",
+   "label": "Target Warehouse Address Link",
    "options": "Address"
   },
   {
    "fieldname": "target_address_display",
-   "fieldtype": "Small Text",
+   "fieldtype": "Text Editor",
    "label": "Target Warehouse Address",
    "read_only": 1
   },
@@ -411,7 +408,7 @@
    "collapsible": 1,
    "collapsible_depends_on": "total_additional_costs",
    "fieldname": "additional_costs_section",
-   "fieldtype": "Section Break",
+   "fieldtype": "Tab Break",
    "label": "Additional Costs"
   },
   {
@@ -469,7 +466,7 @@
   },
   {
    "fieldname": "address_display",
-   "fieldtype": "Small Text",
+   "fieldtype": "Text Editor",
    "label": "Address"
   },
   {
@@ -552,7 +549,8 @@
    "label": "Job Card",
    "options": "Job Card",
    "print_hide": 1,
-   "read_only": 1
+   "read_only": 1,
+   "search_index": 1
   },
   {
    "fieldname": "amended_from",
@@ -576,19 +574,16 @@
   {
    "collapsible": 1,
    "fieldname": "accounting_dimensions_section",
-   "fieldtype": "Section Break",
+   "fieldtype": "Tab Break",
    "label": "Accounting Dimensions"
-  },
-  {
-   "fieldname": "dimension_col_break",
-   "fieldtype": "Column Break"
   },
   {
    "fieldname": "pick_list",
    "fieldtype": "Link",
    "label": "Pick List",
    "options": "Pick List",
-   "read_only": 1
+   "read_only": 1,
+   "search_index": 1
   },
   {
    "fieldname": "print_settings_col_break",
@@ -616,10 +611,85 @@
    "fieldname": "is_return",
    "fieldtype": "Check",
    "hidden": 1,
+   "in_list_view": 1,
    "label": "Is Return",
    "no_copy": 1,
    "print_hide": 1,
    "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "bom_info_section",
+   "fieldtype": "Section Break",
+   "label": "BOM Info"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_jwgn",
+   "fieldtype": "Section Break",
+   "label": "Default Warehouse"
+  },
+  {
+   "fieldname": "other_info_tab",
+   "fieldtype": "Tab Break",
+   "label": "Other Info"
+  },
+  {
+   "fieldname": "supplier_info_tab",
+   "fieldtype": "Tab Break",
+   "label": "Supplier Info"
+  },
+  {
+   "fieldname": "stock_entry_details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details",
+   "oldfieldtype": "Section Break"
+  },
+  {
+   "collapsible": 1,
+   "depends_on": "eval: doc.fg_completed_qty > 0 && in_list([\"Manufacture\", \"Repack\"], doc.purpose)",
+   "fieldname": "section_break_7qsm",
+   "fieldtype": "Section Break",
+   "label": "Process Loss"
+  },
+  {
+   "depends_on": "eval: doc.fg_completed_qty > 0 && in_list([\"Manufacture\", \"Repack\"], doc.purpose)",
+   "fieldname": "process_loss_qty",
+   "fieldtype": "Float",
+   "label": "Process Loss Qty"
+  },
+  {
+   "fieldname": "column_break_e92r",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.from_bom && doc.fg_completed_qty",
+   "fieldname": "process_loss_percentage",
+   "fieldtype": "Percent",
+   "label": "% Process Loss"
+  },
+  {
+   "fieldname": "items_section",
+   "fieldtype": "Section Break",
+   "label": "Items"
+  },
+  {
+   "fieldname": "column_break_eaoa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.asset_repair",
+   "fieldname": "asset_repair",
+   "fieldtype": "Link",
+   "label": "Asset Repair",
+   "options": "Asset Repair",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tab_connections",
+   "fieldtype": "Tab Break",
+   "label": "Connections",
+   "show_dashboard": 1
   }
  ],
  "icon": "fa fa-file-text",
@@ -627,7 +697,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2022-05-02 05:21:39.060501",
+ "modified": "2024-08-13 19:02:42.386955",
  "modified_by": "Administrator",
  "module": "Stock",
  "name": "Stock Entry",
@@ -688,7 +758,6 @@
    "read": 1,
    "report": 1,
    "role": "Stock Manager",
-   "set_user_permissions": 1,
    "share": 1,
    "submit": 1,
    "write": 1
@@ -696,7 +765,7 @@
  ],
  "search_fields": "posting_date, from_warehouse, to_warehouse, purpose, remarks",
  "show_name_in_global_search": 1,
- "sort_field": "modified",
+ "sort_field": "creation",
  "sort_order": "DESC",
  "states": [],
  "title_field": "stock_entry_type",
